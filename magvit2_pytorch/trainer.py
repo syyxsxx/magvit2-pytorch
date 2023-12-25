@@ -200,9 +200,11 @@ class VideoTokenizerTrainer(Module):
 
         # multiscale discr losses
 
-        self.has_multiscale_discrs = self.model.has_multiscale_discrs
+        #self.has_multiscale_discrs = self.model.has_multiscale_discrs
+        self.has_multiscale_discrs = False
         self.multiscale_discr_optimizers = []
 
+        self.model.multiscale_discrs = []
         for ind, discr in enumerate(self.model.multiscale_discrs):
             multiscale_optimizer = get_optimizer(discr.parameters(), lr = learning_rate, **optimizer_kwargs)
 
@@ -231,7 +233,8 @@ class VideoTokenizerTrainer(Module):
 
         # move ema to the proper device
 
-        self.ema_model.to(self.device)
+        if self.is_main:
+            self.ema_model.to(self.device)
 
     @contextmanager
     @beartype
@@ -331,6 +334,7 @@ class VideoTokenizerTrainer(Module):
 
         # determine whether to train adversarially
 
+        self.model.use_gan = True
         train_adversarially = self.model.use_gan and (step + 1) > self.discr_start_after_step
 
         adversarial_loss_weight = 0. if not train_adversarially else None
