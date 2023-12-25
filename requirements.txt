@@ -1,7 +1,9 @@
-torch==2.1.0
-torchvision==0.16.0
-torchaudio==2.1.0
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
 vector_quantize_pytorch
 beartype
 gateloop_transformer
 kornia
+pytorch_warmup
+ema_pytorch
