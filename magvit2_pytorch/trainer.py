@@ -485,8 +485,8 @@ class VideoTokenizerTrainer(Module):
             valid_ema_recon_loss = ema_recon_loss.item()
         )
 
-        self.print(f'validation recon loss {recon_loss:.3f}')
-        self.print(f'validation EMA recon loss {ema_recon_loss:.3f}')
+        self.print(f'validation recon loss {recon_loss:.6f}')
+        self.print(f'validation EMA recon loss {ema_recon_loss:.6f}')
 
         if not save_recons:
             return
