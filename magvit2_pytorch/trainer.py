@@ -1,6 +1,7 @@
 from pathlib import Path
 from functools import partial
 from contextlib import contextmanager, nullcontext
+import time
 
 import torch
 from torch import nn
@@ -329,7 +330,7 @@ class VideoTokenizerTrainer(Module):
 
     def train_step(self, dl_iter):
         self.model.train()
-
+        self.print(f'recon loss: {loss_breakdown.recon_loss.item():.6f}')
         step = self.step.item()
 
         # determine whether to train adversarially
@@ -368,7 +369,7 @@ class VideoTokenizerTrainer(Module):
             adversarial_gen_loss = loss_breakdown.adversarial_gen_loss.item(),
         )
 
-        self.print(f'recon loss: {loss_breakdown.recon_loss.item():.3f}')
+        self.print(f'recon loss: {loss_breakdown.recon_loss.item():.6f}')
 
         if exists(self.max_grad_norm):
             self.accelerator.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
@@ -425,7 +426,7 @@ class VideoTokenizerTrainer(Module):
         if apply_gradient_penalty:
             self.log(gradient_penalty = discr_loss_breakdown.gradient_penalty.item())
 
-        self.print(f'discr loss: {discr_loss_breakdown.discr_loss.item():.3f}')
+        self.print(f'discr loss: {discr_loss_breakdown.discr_loss.item():.6f}')
 
         if exists(self.max_grad_norm):
             self.accelerator.clip_grad_norm_(self.model.discr_parameters(), self.max_grad_norm)
@@ -517,9 +518,12 @@ class VideoTokenizerTrainer(Module):
 
         while step < self.num_train_steps:
             self.print(f'step {step}')
+            start_time = time.time()
+
 
             self.train_step(dl_iter)
-
+            train_time = time.time() - start_time
+            print(f'train time: {train_time}')
             self.wait()
 
             if self.is_main and not (step % self.validate_every_step):
@@ -531,7 +535,9 @@ class VideoTokenizerTrainer(Module):
                 checkpoint_num = step // self.checkpoint_every_step
                 checkpoint_path = self.checkpoints_folder / f'checkpoint.{checkpoint_num}.pt'
                 self.save(str(checkpoint_path))
-
+            
             self.wait()
+            step_time = time.time() - start_time
+            print(f'one step time: {step_time}')
 
             step += 1
