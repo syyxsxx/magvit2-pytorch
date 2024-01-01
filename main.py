@@ -45,9 +45,11 @@ def main():
         batch_size = args.bn,
         grad_accum_every = 8,
         learning_rate = 2e-5,
-        num_train_steps = 1_000_000
+        num_train_steps = 1_000_000,
+        use_wandb_tracking = True
     )
-    trainer.train()
+    with trainer.trackers(project_name = 'magvit2', run_name = 'baseline'):
+        trainer.train()
 
 
 if __name__ == '__main__':
