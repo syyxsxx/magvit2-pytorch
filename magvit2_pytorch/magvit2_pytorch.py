@@ -118,7 +118,7 @@ def hinge_discr_loss(fake, real):
 def hinge_gen_loss(fake):
     return -fake.mean()
 
-@autocast(enabled = False)
+@autocast(enabled = True)
 @beartype
 def grad_layer_wrt_loss(
     loss: Tensor,

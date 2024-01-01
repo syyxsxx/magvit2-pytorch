@@ -523,7 +523,7 @@ class VideoTokenizerTrainer(Module):
 
             self.train_step(dl_iter)
             train_time = time.time() - start_time
-            print(f'train time: {train_time}')
+            self.print(f'train time: {train_time}')
             self.wait()
 
             if self.is_main and not (step % self.validate_every_step):
@@ -538,6 +538,6 @@ class VideoTokenizerTrainer(Module):
             
             self.wait()
             step_time = time.time() - start_time
-            print(f'one step time: {step_time}')
+            self.print(f'one step time: {step_time}')
 
             step += 1
