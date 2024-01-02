@@ -9,7 +9,7 @@ parser.add_argument('data', metavar='DIR', nargs='?', default='imagenet',
 parser.add_argument('--data-type', default='videos', type=str,
                     help='dataset type')
 parser.add_argument('--load-from-path', default=None, type=str,
-                    help='if not None, load from path)
+                    help='if not None, load from path')
 parser.add_argument('--bn', default=1, type=int,
                     help='batchsize')
 
