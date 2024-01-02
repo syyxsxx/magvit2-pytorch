@@ -430,7 +430,7 @@ class VideoTokenizerTrainer(Module):
             self.accelerator.clip_grad_norm_(self.model.discr_parameters(), self.max_grad_norm)
 
             if self.has_multiscale_discrs:
-                for multiscale_discr in self.model.module..multiscale_discrs:
+                for multiscale_discr in self.model.module.multiscale_discrs:
                     self.accelerator.clip_grad_norm_(multiscale_discr.parameters(), self.max_grad_norm)
 
         self.discr_optimizer.step()
