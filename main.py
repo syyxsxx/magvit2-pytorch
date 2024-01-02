@@ -8,7 +8,8 @@ parser.add_argument('data', metavar='DIR', nargs='?', default='imagenet',
                     help='path to dataset (default: imagenet)')
 parser.add_argument('--data-type', default='videos', type=str,
                     help='dataset type')
-
+parser.add_argument('--load-from-path', default=None, type=str,
+                    help='if not None, load from path)
 parser.add_argument('--bn', default=1, type=int,
                     help='batchsize')
 
@@ -46,8 +47,11 @@ def main():
         grad_accum_every = 8,
         learning_rate = 2e-5,
         num_train_steps = 1_000_000,
+        optimizer_kwargs={"betas": (0.9, 0.99)}, # From the paper
         use_wandb_tracking = True
     )
+    if args.load_from_path:
+        trainer.load(args.load_from_path)
     with trainer.trackers(project_name = 'magvit2', run_name = 'baseline'):
         trainer.train()
 
