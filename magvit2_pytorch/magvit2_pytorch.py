@@ -806,14 +806,15 @@ class TimeDownsample2x(Module):
         super().__init__()
         dim_out = default(dim_out, dim)
         self.maybe_blur = Blur() if antialias else identity
-        self.conv = nn.Conv1d(dim, dim_out, kernel_size, stride = 2, padding = kernel_size // 2)
+        self.time_causal_padding = (kernel_size - 1, 0)
+        self.conv = nn.Conv1d(dim, dim_out, kernel_size, stride = 2)
 
     def forward(self, x):
         x = self.maybe_blur(x, time_only = True)
 
         x = rearrange(x, 'b c t h w -> b h w c t')
         x, ps = pack_one(x, '* c t')
-
+        x = F.pad(x, self.time_causal_padding)
         out = self.conv(x)
 
         out = unpack_one(out, ps, '* c t')
@@ -1098,8 +1099,7 @@ class VideoTokenizer(Module):
         grad_penalty_loss_weight = 10.,
         multiscale_adversarial_loss_weight = 1.,
         flash_attn = True,
-        separate_first_frame_encoding = False,
-        gateloop_use_jax = False
+        separate_first_frame_encoding = False
     ):
         super().__init__()
 
@@ -1228,7 +1228,7 @@ class VideoTokenizer(Module):
 
             elif layer_type == 'gateloop_time':
                 gateloop_kwargs = dict(
-                    use_jax_associative_scan = gateloop_use_jax
+                    use_heinsen = False
                 )
 
                 encoder_layer = ToTimeSequence(Residual(SimpleGateLoopLayer(dim = dim)))
@@ -1543,8 +1543,9 @@ class VideoTokenizer(Module):
         # whether to pad video or not
 
         if video_contains_first_frame:
+            video_len = video.shape[2]
             video = pad_at_dim(video, (self.time_padding, 0), value = 0., dim = 2)
-
+            video_packed_shape = [torch.Size([self.time_padding]), torch.Size([]), torch.Size([video_len - 1])]
         # conditioning, if needed
 
         assert (not self.has_cond) or exists(cond), '`cond` must be passed into tokenizer forward method since conditionable layers were specified'
@@ -1559,13 +1560,14 @@ class VideoTokenizer(Module):
         # taking into account whether to encode first frame separately
 
         if encode_first_frame_separately:
-            first_frame, video = video[:, :, 0], video[:, :, 1:]
-            xff = self.conv_in_first_frame(first_frame)
+            pad, first_frame, video = unpack(video, video_packed_shape, 'b c * h w')
+            first_frame = self.conv_in_first_frame(first_frame)
 
-        x = self.conv_in(video)
+        video = self.conv_in(video)
 
         if encode_first_frame_separately:
-            x, _ = pack([xff, x], 'b c * h w')
+            video, _ = pack([first_frame, video], 'b c * h w')
+            video = pad_at_dim(video, (self.time_padding, 0), dim = 2)
 
         # encoder layers
 
@@ -1576,11 +1578,11 @@ class VideoTokenizer(Module):
             if has_cond:
                 layer_kwargs = cond_kwargs
 
-            x = fn(x, **layer_kwargs)
+            video = fn(video, **layer_kwargs)
 
         maybe_quantize = identity if not quantize else self.quantizers
 
-        return maybe_quantize(x)
+        return maybe_quantize(video)
 
     @beartype
     def decode_from_code_indices(

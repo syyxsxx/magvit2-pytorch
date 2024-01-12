@@ -9,6 +9,7 @@ from torch.nn import Module
 from torch.utils.data import Dataset, random_split
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 import pytorch_warmup as warmup
+from pytorch_custom_utils import auto_unwrap_model
 
 from beartype import beartype
 from beartype.typing import Optional, Literal, Union, Type
@@ -55,8 +56,8 @@ def cycle(dl):
             yield data
 
 # class
-
-class VideoTokenizerTrainer(Module):
+@auto_unwrap_model()
+class VideoTokenizerTrainer():
     @beartype
     def __init__(
         self,
@@ -88,7 +89,7 @@ class VideoTokenizerTrainer(Module):
         optimizer_kwargs: dict = dict(),
         dataset_kwargs: dict = dict()
     ):
-        super().__init__()
+        #super().__init__()
 
         self.use_wandb_tracking = use_wandb_tracking
 
@@ -229,8 +230,8 @@ class VideoTokenizerTrainer(Module):
 
         # keep track of train step
 
-        self.register_buffer('step', torch.tensor(0))
-
+        #self.register_buffer('step', torch.tensor(0))
+        self.step = 0
         # move ema to the proper device
 
         if self.is_main:
@@ -255,11 +256,13 @@ class VideoTokenizerTrainer(Module):
         self.accelerator.end_training()
 
     def log(self, **data_kwargs):
-        self.accelerator.log(data_kwargs, step = self.step.item())
+        #self.accelerator.log(data_kwargs, step = self.step.item())
+        self.accelerator.log(data_kwargs, step = self.step)
 
     @property
     def device(self):
-        return self.unwrapped_model.device
+        #return self.unwrapped_model.device
+        return self.model.device
 
     @property
     def is_main(self):
@@ -291,7 +294,7 @@ class VideoTokenizerTrainer(Module):
         assert overwrite or not path.exists()
 
         pkg = dict(
-            model = self.unwrapped_model.state_dict(),
+            model = self.model.state_dict(),
             ema_model = self.ema_model.state_dict(),
             optimizer = self.optimizer.state_dict(),
             discr_optimizer = self.discr_optimizer.state_dict(),
@@ -299,7 +302,7 @@ class VideoTokenizerTrainer(Module):
             scheduler = self.scheduler.state_dict(),
             discr_warmup = self.discr_warmup.state_dict(),
             discr_scheduler = self.discr_scheduler.state_dict(),
-            step = self.step.item()
+            step = self.step
         )
 
         for ind, opt in enumerate(self.multiscale_discr_optimizers):
@@ -325,7 +328,8 @@ class VideoTokenizerTrainer(Module):
         for ind, opt in enumerate(self.multiscale_discr_optimizers):
             opt.load_state_dict(pkg[f'multiscale_discr_optimizer_{ind}'])
 
-        self.step.copy_(pkg['step'])
+        #self.step.copy_(pkg['step'])
+        self.step = pkg['step']
 
     def train_step(self, dl_iter):
         self.model.train()
@@ -390,7 +394,8 @@ class VideoTokenizerTrainer(Module):
         # if adversarial loss is turned off, continue
 
         if not train_adversarially:
-            self.step.add_(1)
+            #self.step.add_(1)
+            self.step += 1
             return
 
         # discriminator and multiscale discriminators
@@ -445,7 +450,8 @@ class VideoTokenizerTrainer(Module):
 
         # update train step
 
-        self.step.add_(1)
+        #self.step.add_(1)
+        self.step += 1
 
     @torch.no_grad()
     def valid_step(
@@ -467,7 +473,8 @@ class VideoTokenizerTrainer(Module):
             valid_video = valid_video.to(self.device)
 
             with self.accelerator.autocast():
-                loss, _ = self.unwrapped_model(valid_video, return_recon_loss_only = True)
+                #loss, _ = self.unwrapped_model(valid_video, return_recon_loss_only = True)
+                loss, _ = self.model(valid_video, return_recon_loss_only = True)
                 ema_loss, ema_recon_video = self.ema_model(valid_video, return_recon_loss_only = True)
 
             recon_loss += loss / self.grad_accum_every
@@ -499,7 +506,8 @@ class VideoTokenizerTrainer(Module):
 
         real_and_recon = rearrange([valid_videos, recon_videos], 'n b c f h w -> c f (b h) (n w)')
 
-        validate_step = self.step.item() // self.validate_every_step
+        #validate_step = self.step.item() // self.validate_every_step
+        validate_step = self.step // self.validate_every_step
 
         sample_path = str(self.results_folder / f'sampled.{validate_step}.gif')
 
@@ -509,7 +517,8 @@ class VideoTokenizerTrainer(Module):
 
     def train(self):
 
-        step = self.step.item()
+        #step = self.step.item()
+        step = self.step
 
         dl_iter = cycle(self.dataloader)
         valid_dl_iter = cycle(self.valid_dataloader)
