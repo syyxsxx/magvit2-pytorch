@@ -203,10 +203,10 @@ class VideoTokenizerTrainer():
         # multiscale discr losses
 
         #self.has_multiscale_discrs = self.model.has_multiscale_discrs
-        self.has_multiscale_discrs = self.model.module.has_multiscale_discrs
+        self.has_multiscale_discrs = self.model.has_multiscale_discrs
         self.multiscale_discr_optimizers = []
 
-        for ind, discr in enumerate(self.model.module.multiscale_discrs):
+        for ind, discr in enumerate(self.model.multiscale_discrs):
             multiscale_optimizer = get_optimizer(discr.parameters(), lr = learning_rate, **optimizer_kwargs)
 
             self.multiscale_discr_optimizers.append(multiscale_optimizer)
@@ -338,7 +338,7 @@ class VideoTokenizerTrainer():
 
         # determine whether to train adversarially
 
-        train_adversarially = self.model.module.use_gan and (step + 1) > self.discr_start_after_step
+        train_adversarially = self.model.use_gan and (step + 1) > self.discr_start_after_step
 
         adversarial_loss_weight = 0. if not train_adversarially else None
         multiscale_adversarial_loss_weight = 0. if not train_adversarially else None
@@ -435,7 +435,7 @@ class VideoTokenizerTrainer():
             self.accelerator.clip_grad_norm_(self.model.discr_parameters(), self.max_grad_norm)
 
             if self.has_multiscale_discrs:
-                for multiscale_discr in self.model.module.multiscale_discrs:
+                for multiscale_discr in self.model.multiscale_discrs:
                     self.accelerator.clip_grad_norm_(multiscale_discr.parameters(), self.max_grad_norm)
 
         self.discr_optimizer.step()
