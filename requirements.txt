@@ -7,3 +7,4 @@ gateloop_transformer
 kornia
 pytorch_warmup
 ema_pytorch
+pytorch_custom_utils
