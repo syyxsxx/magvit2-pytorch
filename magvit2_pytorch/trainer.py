@@ -334,7 +334,7 @@ class VideoTokenizerTrainer():
     def train_step(self, dl_iter):
         self.model.train()
         #self.print(f'recon loss: {loss_breakdown.recon_loss.item():.6f}')
-        step = self.step.item()
+        step = self.step
 
         # determine whether to train adversarially
 
