@@ -51,7 +51,7 @@ def main():
         use_wandb_tracking = True,
     )
     if args.load_from_path:
-        trainer.load()
+        trainer.load(args.load_from_path)
     with trainer.trackers(project_name = 'magvit2', run_name = 'baseline'):
         trainer.train()
 
