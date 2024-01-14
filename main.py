@@ -49,9 +49,8 @@ def main():
         num_train_steps = 1_000_000,
         optimizer_kwargs={"betas": (0.9, 0.99)}, # From the paper
         use_wandb_tracking = True,
+        load_from_path=args.load_from_path
     )
-    if args.load_from_path:
-        trainer.load(args.load_from_path)
     with trainer.trackers(project_name = 'magvit2', run_name = 'baseline'):
         trainer.train()
 

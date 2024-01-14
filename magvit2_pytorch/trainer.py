@@ -82,6 +82,7 @@ class VideoTokenizerTrainer():
         use_wandb_tracking = False,
         discr_start_after_step = 0.,
         warmup_steps = 1000,
+        load_from_path = None,
         scheduler: Optional[Type[LRScheduler]] = None,
         scheduler_kwargs: dict = dict(),
         accelerate_kwargs: dict = dict(),
@@ -106,13 +107,22 @@ class VideoTokenizerTrainer():
         # model and exponentially moving averaged model
 
         self.model = model
+        pkg = None
+        if load_from_path:
+            path = Path(load_from_path)
+            assert path.exists()
+            pkg = torch.load(str(path))
+            self.model.load_state_dict(pkg['model'])
 
         if self.is_main:
             self.ema_model = EMA(
-                model,
+                self.model,
                 include_online_model = False,
                 **ema_kwargs
             )
+            if load_from_path:
+                self.ema_model.load_state_dict(pkg['ema_model'])
+
 
         dataset_kwargs.update(channels = model.channels)
 
@@ -157,7 +167,7 @@ class VideoTokenizerTrainer():
 
         self.optimizer = get_optimizer(model.parameters(), lr = learning_rate, **optimizer_kwargs)
         self.discr_optimizer = get_optimizer(model.discr_parameters(), lr = learning_rate, **optimizer_kwargs)
-
+            
         # warmup
 
         self.warmup = warmup.LinearWarmup(self.optimizer, warmup_period = warmup_steps)
@@ -181,6 +191,14 @@ class VideoTokenizerTrainer():
         self.max_grad_norm = max_grad_norm
 
         self.apply_gradient_penalty_every = apply_gradient_penalty_every
+
+        if load_from_path:
+            self.optimizer.load_state_dict(pkg['optimizer'])
+            self.discr_optimizer.load_state_dict(pkg['discr_optimizer'])
+            self.warmup.load_state_dict(pkg['warmup'])
+            self.scheduler.load_state_dict(pkg['scheduler'])
+            self.discr_warmup.load_state_dict(pkg['discr_warmup'])
+            self.discr_scheduler.load_state_dict(pkg['discr_scheduler'])
 
         # prepare for maybe distributed
 
@@ -233,6 +251,11 @@ class VideoTokenizerTrainer():
         #self.register_buffer('step', torch.tensor(0))
         self.step = 0
         # move ema to the proper device
+
+        if load_from_path:
+            for ind, opt in enumerate(self.multiscale_discr_optimizers):
+                opt.load_state_dict(pkg[f'multiscale_discr_optimizer_{ind}'])
+        self.step = pkg['step']
 
         if self.is_main:
             self.ema_model.to(self.device)
@@ -317,12 +340,7 @@ class VideoTokenizerTrainer():
         pkg = torch.load(str(path))
 
         self.model.load_state_dict(pkg['model'])
-        if self.is_main:
-            self.ema_model = EMA(
-                self.model,
-                include_online_model = False,
-            )
-        #self.ema_model.load_state_dict(pkg['ema_model'])
+        self.ema_model.load_state_dict(pkg['ema_model'])
         self.optimizer.load_state_dict(pkg['optimizer'])
         self.discr_optimizer.load_state_dict(pkg['discr_optimizer'])
         self.warmup.load_state_dict(pkg['warmup'])
@@ -335,6 +353,8 @@ class VideoTokenizerTrainer():
 
         #self.step.copy_(pkg['step'])
         self.step = pkg['step']
+
+        
 
     def train_step(self, dl_iter):
         self.model.train()
