@@ -557,8 +557,8 @@ class VideoTokenizerTrainer(Module):
         recon_videos.clamp_(min = 0., max = 1.)
 
         valid_videos, recon_videos = map(lambda t: t[:num_save_recons], (valid_videos, recon_videos))
-        valid_videos_matrix = rearrange(valid_videos, 'n b c f h w -> c f (b h) (n w)')
-        recon_videos_matrix = rearrange(recon_videos, 'n b c f h w -> c f (b h) (n w)')
+        valid_videos_matrix = rearrange([valid_videos], 'n b c f h w -> c f (b h) (n w)')
+        recon_videos_matrix = rearrange([recon_videos], 'n b c f h w -> c f (b h) (n w)')
         if self.dataset_type == 'images':
             self.valid_matrix(valid_videos_matrix, recon_videos_matrix)
 
