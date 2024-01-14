@@ -255,7 +255,7 @@ class VideoTokenizerTrainer():
         if load_from_path:
             for ind, opt in enumerate(self.multiscale_discr_optimizers):
                 opt.load_state_dict(pkg[f'multiscale_discr_optimizer_{ind}'])
-        self.step = pkg['step']
+            self.step = pkg['step']
 
         if self.is_main:
             self.ema_model.to(self.device)
