@@ -32,6 +32,12 @@ from einops import rearrange
 
 from ema_pytorch import EMA
 
+
+from skimage.metrics import mean_squared_error as compare_mse
+from skimage.metrics import peak_signal_noise_ratio as compare_psnr
+from skimage.metrics import structural_similarity as compare_ssim
+
+
 # constants
 
 VideosOrImagesLiteral = Union[
@@ -56,8 +62,8 @@ def cycle(dl):
             yield data
 
 # class
-@auto_unwrap_model()
-class VideoTokenizerTrainer():
+#@auto_unwrap_model()
+class VideoTokenizerTrainer(Module):
     @beartype
     def __init__(
         self,
@@ -90,7 +96,7 @@ class VideoTokenizerTrainer():
         optimizer_kwargs: dict = dict(),
         dataset_kwargs: dict = dict()
     ):
-        #super().__init__()
+        super().__init__()
 
         self.use_wandb_tracking = use_wandb_tracking
 
@@ -120,8 +126,8 @@ class VideoTokenizerTrainer():
                 include_online_model = False,
                 **ema_kwargs
             )
-            if load_from_path:
-                self.ema_model.load_state_dict(pkg['ema_model'])
+            #if load_from_path:
+                #self.ema_model.load_state_dict(pkg['ema_model'])
 
 
         dataset_kwargs.update(channels = model.channels)
@@ -221,10 +227,10 @@ class VideoTokenizerTrainer():
         # multiscale discr losses
 
         #self.has_multiscale_discrs = self.model.has_multiscale_discrs
-        self.has_multiscale_discrs = self.model.has_multiscale_discrs
+        self.has_multiscale_discrs = self.model.module.has_multiscale_discrs
         self.multiscale_discr_optimizers = []
 
-        for ind, discr in enumerate(self.model.multiscale_discrs):
+        for ind, discr in enumerate(self.model.module.multiscale_discrs):
             multiscale_optimizer = get_optimizer(discr.parameters(), lr = learning_rate, **optimizer_kwargs)
 
             self.multiscale_discr_optimizers.append(multiscale_optimizer)
@@ -236,26 +242,29 @@ class VideoTokenizerTrainer():
 
         checkpoints_folder = Path(checkpoints_folder)
         results_folder = Path(results_folder)
+        temp_folder = Path('./temp')
 
         checkpoints_folder.mkdir(parents = True, exist_ok = True)
         results_folder.mkdir(parents = True, exist_ok = True)
+        temp_folder.mkdir(parents = True, exist_ok = True)
 
         assert checkpoints_folder.is_dir()
         assert results_folder.is_dir()
 
         self.checkpoints_folder = checkpoints_folder
         self.results_folder = results_folder
+        self.temp_folder =  temp_folder
 
         # keep track of train step
 
-        #self.register_buffer('step', torch.tensor(0))
-        self.step = 0
+        self.register_buffer('step', torch.tensor(0))
+        #self.step = 0
         # move ema to the proper device
 
         if load_from_path:
             for ind, opt in enumerate(self.multiscale_discr_optimizers):
                 opt.load_state_dict(pkg[f'multiscale_discr_optimizer_{ind}'])
-            self.step = pkg['step']
+            self.step.copy_(pkg['step'])
 
         if self.is_main:
             self.ema_model.to(self.device)
@@ -279,21 +288,21 @@ class VideoTokenizerTrainer():
         self.accelerator.end_training()
 
     def log(self, **data_kwargs):
-        #self.accelerator.log(data_kwargs, step = self.step.item())
-        self.accelerator.log(data_kwargs, step = self.step)
+        self.accelerator.log(data_kwargs, step = self.step.item())
+        #self.accelerator.log(data_kwargs, step = self.step)
 
     @property
     def device(self):
-        #return self.unwrapped_model.device
-        return self.model.device
+        return self.unwrapped_model.device
+        #return self.model.device
 
     @property
     def is_main(self):
         return self.accelerator.is_main_process
 
-    #@property
-    #def unwrapped_model(self):
-        #return self.accelerator.unwrap_model(self.model)
+    @property
+    def unwrapped_model(self):
+        return self.accelerator.unwrap_model(self.model)
 
     @property
     def is_local_main(self):
@@ -317,7 +326,7 @@ class VideoTokenizerTrainer():
         assert overwrite or not path.exists()
 
         pkg = dict(
-            model = self.model.state_dict(),
+            model = self.unwrapped_model.state_dict(),
             ema_model = self.ema_model.state_dict(),
             optimizer = self.optimizer.state_dict(),
             discr_optimizer = self.discr_optimizer.state_dict(),
@@ -325,7 +334,7 @@ class VideoTokenizerTrainer():
             scheduler = self.scheduler.state_dict(),
             discr_warmup = self.discr_warmup.state_dict(),
             discr_scheduler = self.discr_scheduler.state_dict(),
-            step = self.step
+            step = self.step.item()
         )
 
         for ind, opt in enumerate(self.multiscale_discr_optimizers):
@@ -351,8 +360,8 @@ class VideoTokenizerTrainer():
         for ind, opt in enumerate(self.multiscale_discr_optimizers):
             opt.load_state_dict(pkg[f'multiscale_discr_optimizer_{ind}'])
 
-        #self.step.copy_(pkg['step'])
-        self.step = pkg['step']
+        self.step.copy_(pkg['step'])
+        #self.step = pkg['step']
 
         
 
@@ -363,7 +372,7 @@ class VideoTokenizerTrainer():
 
         # determine whether to train adversarially
 
-        train_adversarially = self.model.use_gan and (step + 1) > self.discr_start_after_step
+        train_adversarially = self.model.module.use_gan and (step + 1) > self.discr_start_after_step
 
         adversarial_loss_weight = 0. if not train_adversarially else None
         multiscale_adversarial_loss_weight = 0. if not train_adversarially else None
@@ -419,8 +428,8 @@ class VideoTokenizerTrainer():
         # if adversarial loss is turned off, continue
 
         if not train_adversarially:
-            #self.step.add_(1)
-            self.step += 1
+            self.step.add_(1)
+            #self.step += 1
             return
 
         # discriminator and multiscale discriminators
@@ -460,7 +469,7 @@ class VideoTokenizerTrainer():
             self.accelerator.clip_grad_norm_(self.model.discr_parameters(), self.max_grad_norm)
 
             if self.has_multiscale_discrs:
-                for multiscale_discr in self.model.multiscale_discrs:
+                for multiscale_discr in self.model.module.multiscale_discrs:
                     self.accelerator.clip_grad_norm_(multiscale_discr.parameters(), self.max_grad_norm)
 
         self.discr_optimizer.step()
@@ -475,8 +484,8 @@ class VideoTokenizerTrainer():
 
         # update train step
 
-        #self.step.add_(1)
-        self.step += 1
+        self.step.add_(1)
+        #self.step += 1
 
     @torch.no_grad()
     def valid_step(
@@ -498,8 +507,8 @@ class VideoTokenizerTrainer():
             valid_video = valid_video.to(self.device)
 
             with self.accelerator.autocast():
-                #loss, _ = self.unwrapped_model(valid_video, return_recon_loss_only = True)
-                loss, _ = self.model(valid_video, return_recon_loss_only = True)
+                loss, _ = self.unwrapped_model(valid_video, return_recon_loss_only = True)
+                #loss, _ = self.model(valid_video, return_recon_loss_only = True)
                 ema_loss, ema_recon_video = self.ema_model(valid_video, return_recon_loss_only = True)
 
             recon_loss += loss / self.grad_accum_every
@@ -531,8 +540,8 @@ class VideoTokenizerTrainer():
 
         real_and_recon = rearrange([valid_videos, recon_videos], 'n b c f h w -> c f (b h) (n w)')
 
-        #validate_step = self.step.item() // self.validate_every_step
-        validate_step = self.step // self.validate_every_step
+        validate_step = self.step.item() // self.validate_every_step
+        #validate_step = self.step // self.validate_every_step
 
         sample_path = str(self.results_folder / f'sampled.{validate_step}.gif')
 
@@ -542,8 +551,8 @@ class VideoTokenizerTrainer():
 
     def train(self):
 
-        #step = self.step.item()
-        step = self.step
+        step = self.step.item()
+        #step = self.step
 
         dl_iter = cycle(self.dataloader)
         valid_dl_iter = cycle(self.valid_dataloader)
