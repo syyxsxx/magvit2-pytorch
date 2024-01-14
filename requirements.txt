@@ -10,3 +10,4 @@ ema_pytorch
 pytorch_custom_utils
 wandb
 scikit-image
+accelerate==0.26.1

@@ -268,6 +268,11 @@ class VideoTokenizerTrainer(Module):
 
         if self.is_main:
             self.ema_model.to(self.device)
+        
+        #trackers
+        if self.is_main and self.use_wandb_tracking:
+            self.trackers(project_name='magvit2', run_name='baseline')
+
 
     @contextmanager
     @beartype
