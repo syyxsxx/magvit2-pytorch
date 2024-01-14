@@ -295,7 +295,7 @@ class VideoTokenizerTrainer():
 
         pkg = dict(
             model = self.model.state_dict(),
-            #ema_model = self.ema_model.state_dict(),
+            ema_model = self.ema_model.state_dict(),
             optimizer = self.optimizer.state_dict(),
             discr_optimizer = self.discr_optimizer.state_dict(),
             warmup = self.warmup.state_dict(),
