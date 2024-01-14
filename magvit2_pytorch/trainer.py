@@ -295,7 +295,7 @@ class VideoTokenizerTrainer():
 
         pkg = dict(
             model = self.model.state_dict(),
-            ema_model = self.ema_model.state_dict(),
+            #ema_model = self.ema_model.state_dict(),
             optimizer = self.optimizer.state_dict(),
             discr_optimizer = self.discr_optimizer.state_dict(),
             warmup = self.warmup.state_dict(),
@@ -317,7 +317,12 @@ class VideoTokenizerTrainer():
         pkg = torch.load(str(path))
 
         self.model.load_state_dict(pkg['model'])
-        self.ema_model.load_state_dict(pkg['ema_model'])
+        if self.is_main:
+            self.ema_model = EMA(
+                self.model,
+                include_online_model = False,
+            )
+        #self.ema_model.load_state_dict(pkg['ema_model'])
         self.optimizer.load_state_dict(pkg['optimizer'])
         self.discr_optimizer.load_state_dict(pkg['discr_optimizer'])
         self.warmup.load_state_dict(pkg['warmup'])
