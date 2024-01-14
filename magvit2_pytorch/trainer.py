@@ -2,6 +2,7 @@ from pathlib import Path
 from functools import partial
 from contextlib import contextmanager, nullcontext
 import time
+import cv2
 
 import numpy as np
 import torch
