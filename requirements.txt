@@ -9,3 +9,4 @@ pytorch_warmup
 ema_pytorch
 pytorch_custom_utils
 wandb
+scikit-image
