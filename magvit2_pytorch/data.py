@@ -145,6 +145,7 @@ def video_tensor_to_gif(
     first_img.save(str(path), save_all = True, append_images = rest_imgs, duration = duration, loop = loop, optimize = optimize)
     return images
 
+
 # gif -> (channels, frame, height, width) tensor
 
 def gif_to_tensor(

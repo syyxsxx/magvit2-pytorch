@@ -3,6 +3,7 @@ from functools import partial
 from contextlib import contextmanager, nullcontext
 import time
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import Module
@@ -10,6 +11,7 @@ from torch.utils.data import Dataset, random_split
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 import pytorch_warmup as warmup
 from pytorch_custom_utils import auto_unwrap_model
+from torchvision import transforms as T
 
 from beartype import beartype
 from beartype.typing import Optional, Literal, Union, Type
@@ -133,7 +135,7 @@ class VideoTokenizerTrainer(Module):
         dataset_kwargs.update(channels = model.channels)
 
         # dataset
-
+        self.dataset_type = dataset_type
         if not exists(dataset):
             if dataset_type == 'videos':
                 dataset_klass = VideoDataset
@@ -271,8 +273,10 @@ class VideoTokenizerTrainer(Module):
         
         #trackers
         if self.is_main and self.use_wandb_tracking:
-            self.trackers(project_name='magvit2', run_name='baseline')
-
+            self.accelerator.init_trackers('magvit2', config = None)
+            run_name = 'baseline'
+            if exists(run_name):
+                self.accelerator.trackers[0].run.name = run_name
 
     @contextmanager
     @beartype
@@ -368,7 +372,18 @@ class VideoTokenizerTrainer(Module):
         self.step.copy_(pkg['step'])
         #self.step = pkg['step']
 
-        
+    def valid_matrix(self, tensor_a, tensor_b):
+        images_a = map(T.ToPILImage(), tensor_a.unbind(dim = 1))
+        images_b = map(T.ToPILImage(), tensor_b.unbind(dim = 1))
+        first_img_a, *rest_imgs = images_a
+        first_img_b, *rest_imgs = images_b
+        first_img_a = cv2.cvtColor(np.array(first_img_a) ,cv2.COLOR_RGB2BGR)
+        first_img_b = cv2.cvtColor(np.array(first_img_b) ,cv2.COLOR_RGB2BGR)
+        p = compare_psnr(first_img_a, first_img_b)
+        s = compare_ssim(first_img_a, first_img_b, multichannel=True)
+        m = compare_mse(first_img_a, first_img_b)
+        self.print('PSNR：{}，SSIM：{}，MSE：{}'.format(p, s, m))
+
 
     def train_step(self, dl_iter):
         self.model.train()
@@ -542,6 +557,8 @@ class VideoTokenizerTrainer(Module):
         recon_videos.clamp_(min = 0., max = 1.)
 
         valid_videos, recon_videos = map(lambda t: t[:num_save_recons], (valid_videos, recon_videos))
+        if self.dataset_type != 'images':
+            self.valid_matrix(valid_videos, recon_videos)
 
         real_and_recon = rearrange([valid_videos, recon_videos], 'n b c f h w -> c f (b h) (n w)')
 
