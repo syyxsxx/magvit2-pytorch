@@ -268,9 +268,9 @@ class VideoTokenizerTrainer():
     def is_main(self):
         return self.accelerator.is_main_process
 
-    @property
-    def unwrapped_model(self):
-        return self.accelerator.unwrap_model(self.model)
+    #@property
+    #def unwrapped_model(self):
+        #return self.accelerator.unwrap_model(self.model)
 
     @property
     def is_local_main(self):
