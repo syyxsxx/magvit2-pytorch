@@ -9,5 +9,6 @@ pytorch_warmup
 ema_pytorch
 pytorch_custom_utils
 wandb
-scikit-image
+scikit-image==0.19.3
 accelerate==0.26.1
+

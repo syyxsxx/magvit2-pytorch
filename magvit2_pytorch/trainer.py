@@ -246,7 +246,6 @@ class VideoTokenizerTrainer(Module):
         checkpoints_folder = Path(checkpoints_folder)
         results_folder = Path(results_folder)
         temp_folder = Path('./temp')
-
         checkpoints_folder.mkdir(parents = True, exist_ok = True)
         results_folder.mkdir(parents = True, exist_ok = True)
         temp_folder.mkdir(parents = True, exist_ok = True)
@@ -561,7 +560,10 @@ class VideoTokenizerTrainer(Module):
         valid_videos_matrix = rearrange([valid_videos], 'n b c f h w -> c f (b h) (n w)')
         recon_videos_matrix = rearrange([recon_videos], 'n b c f h w -> c f (b h) (n w)')
         if self.dataset_type == 'images':
-            self.valid_matrix(valid_videos_matrix, recon_videos_matrix)
+            try:
+                self.valid_matrix(valid_videos_matrix, recon_videos_matrix)
+            except:
+                pass
 
         real_and_recon = rearrange([valid_videos, recon_videos], 'n b c f h w -> c f (b h) (n w)')
 
