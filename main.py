@@ -44,7 +44,7 @@ def main():
         dataset_folder = args.data,     # folder of either videos or images, depending on setting below
         dataset_type = args.data_type,                        # 'videos' or 'images', prior papers have shown pretraining on images to be effective for video synthesis
         batch_size = args.bn,
-        grad_accum_every = 8,
+        grad_accum_every = 1,
         learning_rate = 2e-5,
         num_train_steps = 2_000_000,
         optimizer_kwargs={"betas": (0.9, 0.99)}, # From the paper
