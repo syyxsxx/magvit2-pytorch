@@ -85,7 +85,7 @@ class VideoTokenizerTrainer(Module):
         results_folder = './results',
         random_split_seed = 42,
         valid_frac = 0.05,
-        validate_every_step = 500,
+        validate_every_step = 200,
         checkpoint_every_step = 5000,
         num_frames = 17,
         use_wandb_tracking = False,
